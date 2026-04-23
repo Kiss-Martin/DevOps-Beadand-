@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movies-backend
+  labels:
+    app: movies-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movies-backend
+  template:
+    metadata:
+      labels:
+        app: movies-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/REPLACE_WITH_OWNER/devops-beadand-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: DB_PATH
+              value: /data/data.db
+          volumeMounts:
+            - name: backend-data
+              mountPath: /data
+      volumes:
+        - name: backend-data
+          emptyDir: {}
+      imagePullSecrets:
+        - name: ghcr-auth-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movies-backend-svc
+spec:
+  selector:
+    app: movies-backend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movies-frontend
+  labels:
+    app: movies-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movies-frontend
+  template:
+    metadata:
+      labels:
+        app: movies-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/REPLACE_WITH_OWNER/devops-beadand-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+      imagePullSecrets:
+        - name: ghcr-auth-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movies-frontend-svc
+spec:
+  selector:
+    app: movies-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: movies-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: REPLACE_WITH_YOUR_HOST.jcloud.jedlik.cloud
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: movies-backend-svc
+                port:
+                  number: 3000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: movies-frontend-svc
+                port:
+                  number: 80

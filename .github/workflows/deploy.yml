@@ -1,0 +1,63 @@
+name: Build and Deploy to Jedlik Kubernetes
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository_owner }}/devops-beadand-backend
+  FRONTEND_IMAGE: ${{ github.repository_owner }}/devops-beadand-frontend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.run_id }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.run_id }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+
+      - name: Inject image tags to manifest
+        run: |
+          sed -i "s|ghcr.io/REPLACE_WITH_OWNER/devops-beadand-backend:latest|${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.run_id }}|g" k8s/app.yaml
+          sed -i "s|ghcr.io/REPLACE_WITH_OWNER/devops-beadand-frontend:latest|${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.run_id }}|g" k8s/app.yaml
+
+      - name: Deploy
+        run: kubectl apply -f k8s/app.yaml
