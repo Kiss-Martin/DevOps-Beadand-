@@ -1,0 +1,31 @@
+name: Deploy to Jedlik
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.JEDLIK_HOST }}
+          username: ${{ secrets.JEDLIK_USER }}
+          key: ${{ secrets.JEDLIK_SSH_KEY }}
+          port: ${{ secrets.JEDLIK_PORT }}
+          script: |
+            set -e
+            if [ ! -d "$HOME/movies-app/.git" ]; then
+              git clone ${{ secrets.REPO_SSH_URL }} $HOME/movies-app
+            fi
+            cd $HOME/movies-app
+            git fetch --all
+            git reset --hard origin/main
+            docker compose down
+            docker compose up -d --build
