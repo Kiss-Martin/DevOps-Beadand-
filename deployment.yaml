@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cicd-13c-Deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cicd-13c
+  template:
+    metadata:
+      labels:
+        app: cicd-13c
+    spec:
+      containers:
+        - name: backend
+          image: movies-backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: DB_PATH
+              value: "/data/data.db"
+          volumeMounts:
+            - name: movies-data
+              mountPath: /data
+        - name: frontend
+          image: movies-frontend:latest
+          ports:
+            - containerPort: 80
+      volumes:
+        - name: movies-data
+          persistentVolumeClaim:
+            claimName: movies-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: movies-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cicd-13c-ingress
+  annotations:
+    
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: cicd13c-kissmartin.jcloud.jedlik.cloud
+      http: 
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+            service:
+              name: cicd-13c-clusterip
+              port:
+                number: 80
