@@ -45,6 +45,33 @@ spec:
     requests:
       storage: 1Gi
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cicd-13c-clusterip
+spec:
+  selector:
+    app: cicd-13c
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cicd-13c-backend
+spec:
+  selector:
+    app: cicd-13c
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: api
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
